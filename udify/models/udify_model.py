@@ -8,7 +8,8 @@ import logging
 
 import torch
 
-from pytorch_pretrained_bert.tokenization import BertTokenizer
+#from pytorch_pretrained_bert.tokenization import BertTokenizer
+from transformers import BertTokenizer, XLMTokenizer, CamembertTokenizer
 
 from allennlp.common.checks import check_dimensions_match, ConfigurationError
 from allennlp.data import Vocabulary
@@ -47,6 +48,7 @@ class UdifyModel(Model):
         self.tasks = sorted(tasks)
         self.vocab = vocab
         self.bert_vocab = BertTokenizer.from_pretrained("config/archive/bert-base-multilingual-cased/vocab.txt").vocab
+        #self.bert_tokenizer = 
         self.text_field_embedder = text_field_embedder
         self.post_encoder_embedder = post_encoder_embedder
         self.shared_encoder = encoder

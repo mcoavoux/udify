@@ -11,8 +11,13 @@ from overrides import overrides
 import torch
 import torch.nn.functional as F
 
-from pytorch_pretrained_bert.tokenization import BertTokenizer
-from pytorch_pretrained_bert.modeling import BertModel, BertConfig
+#from pytorch_pretrained_bert.tokenization import BertTokenizer
+#from pytorch_pretrained_bert.modeling import BertModel, BertConfig
+from transformers import PreTrainedModel
+from transformers import BertTokenizer, BertModel, BertConfig
+from transformers import XLMTokenizer, XLMModel, XLMConfig
+from transformers import CamembertTokenizer, CamembertModel, CamembertConfig
+
 
 from allennlp.common.util import pad_sequence_to_length
 from allennlp.modules.token_embedders import TokenEmbedder
@@ -322,7 +327,14 @@ class PretrainedBertIndexer(WordpieceIndexer):
             logger.warning("Your BERT model appears to be uncased, "
                            "but your indexer is not lowercasing tokens.")
 
-        bert_tokenizer = BertTokenizer.from_pretrained(pretrained_model, do_lower_case=do_lowercase)
+        #TODO: HERE
+        if "camembert" in pretrained_model:
+            bert_tokenizer = CamembertTokenizer.from_pretrained(pretrained_model, do_lower_case=False)
+        elif "fra" in pretrained_model:
+            bert_tokenizer = XLMTokenizer.from_pretrained(pretrained_model, do_lower_case=False)
+            bert_tokenizer.do_lowercase_and_remove_accent = False
+        else:
+            bert_tokenizer = BertTokenizer.from_pretrained(pretrained_model, do_lower_case=do_lowercase)
         super().__init__(vocab=bert_tokenizer.vocab,
                          wordpiece_tokenizer=bert_tokenizer.wordpiece_tokenizer.tokenize,
                          namespace="bert",
@@ -370,7 +382,7 @@ class BertEmbedder(TokenEmbedder):
     for one of the named pretrained models, not this base class.
     Parameters
     ----------
-    bert_model: ``BertModel``
+    bert_model: ``PretrainedModel``
         The BERT model being wrapped.
     top_layer_only: ``bool``, optional (default = ``False``)
         If ``True``, then only return the top layer instead of apply the scalar mix.
@@ -388,7 +400,7 @@ class BertEmbedder(TokenEmbedder):
         Options: "mix", "last", "all"
     """
     def __init__(self,
-                 bert_model: BertModel,
+                 bert_model: PreTrainedModel,
                  max_pieces: int = 512,
                  start_tokens: int = 1,
                  end_tokens: int = 1,
@@ -475,10 +487,16 @@ class BertEmbedder(TokenEmbedder):
 
         # input_ids may have extra dimensions, so we reshape down to 2-d
         # before calling the BERT model and then reshape back at the end.
-        all_encoder_layers, _ = self.bert_model(input_ids=util.combine_initial_dims(input_ids),
+#        all_encoder_layers, _ = self.bert_model(input_ids=util.combine_initial_dims(input_ids),
+#                                                token_type_ids=util.combine_initial_dims(token_type_ids),
+#                                                attention_mask=util.combine_initial_dims(input_mask))
+#        all_encoder_layers = torch.stack(all_encoder_layers)
+
+        # Switch from pytorch_pretrained_bert to transformers
+        _, _, hidden_states = self.bert_model(input_ids=util.combine_initial_dims(input_ids),
                                                 token_type_ids=util.combine_initial_dims(token_type_ids),
                                                 attention_mask=util.combine_initial_dims(input_mask))
-        all_encoder_layers = torch.stack(all_encoder_layers)
+        all_encoder_layers = torch.stack(hidden_states[1:])
 
         if needs_split:
             # First, unpack the output embeddings into one long sequence again
@@ -551,7 +569,14 @@ class UdifyPretrainedBertEmbedder(BertEmbedder):
                  dropout: float = 0.1,
                  layer_dropout: float = 0.1,
                  combine_layers: str = "mix") -> None:
-        model = BertModel.from_pretrained(pretrained_model)
+
+        if "fra" in pretrained_model:
+            model = XLMModel.from_pretrained(pretrained_model, output_hidden_states=True)
+        elif "camembert" in pretrained_model:
+            model = CamembertModel.from_pretrained(pretrained_model, output_hidden_states=True)
+        else:
+            model = BertModel.from_pretrained(pretrained_model, output_hidden_states=True)
+
 
         for param in model.parameters():
             param.requires_grad = requires_grad
@@ -586,7 +611,7 @@ class UdifyPredictionBertEmbedder(BertEmbedder):
                  dropout: float = 0.1,
                  layer_dropout: float = 0.1,
                  combine_layers: str = "mix") -> None:
-        model = BertModel(BertConfig.from_json_file(bert_config))
+        model = BertModel(BertConfig.from_json_file(bert_config, output_hidden_states=True))
 
         for param in model.parameters():
             param.requires_grad = requires_grad

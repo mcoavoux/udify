@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--name", default="", type=str, help="Log dir name")
-parser.add_argument("--base_config", default="config/udify_base.json", type=str, help="Base configuration file")
+parser.add_argument("--base_config", default="config/udify_french.json", type=str, help="Base configuration file")
 parser.add_argument("--config", default=[], type=str, nargs="+", help="Overriding configuration files")
 parser.add_argument("--device", default=None, type=int, help="CUDA device; set to -1 for CPU")
 parser.add_argument("--resume", type=str, help="Resume training with the given model")
@@ -56,6 +56,14 @@ else:
     configs.append(Params.from_file(os.path.join(serialization_dir, "config.json")))
 
 train_params = util.merge_configs(configs)
+
+#iitems = train_params.as_dict().items()
+#for k, v in iitems:
+#    print(k, v)
+#    if type(v) == dict:
+#        for k2,v2 in v.items():
+#            print("      ", k2, v2)
+#exit()
 if "vocabulary" in train_params:
     # Remove this key to make AllenNLP happy
     train_params["vocabulary"].pop("non_padded_namespaces", None)
